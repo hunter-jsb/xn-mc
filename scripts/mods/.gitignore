@@ -1,1 +1,4 @@
 mods-*/
+instances/
+__pycache__/
+*.jar

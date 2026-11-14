@@ -1,0 +1,7 @@
+{
+  "name": "Default Fabric",
+  "description": "Shaders, performance, and everyday quality of life.",
+  "mc_version": "26.3",
+  "fabric_loader": "0.20.1",
+  "mods": ["fabric-api", "sodium", "iris", "modmenu", "appleskin", "shulkerboxtooltip", "logical-zoom"]
+}

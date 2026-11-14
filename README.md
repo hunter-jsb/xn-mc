@@ -31,6 +31,12 @@ Go service for [BlueMap](https://bluemap.bluecolored.de/) access control. Discor
 - `setup.sh` — Sets up Crafty Controller (podman) and builds the bot
 - `backup.py` — World backup/restore to S3
 
+## Client mod profiles
+
+Versioned Fabric profiles for default play, multiplayer survival, and farming live
+in [`scripts/mods/`](scripts/mods/README.md). Profile locks track exact jar URLs and
+checksums; downloads and local Minecraft instance data are excluded from Git.
+
 ## Setup
 
 ```bash

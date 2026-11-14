@@ -1,0 +1,6 @@
+{
+  "name": "Multiplayer survival",
+  "description": "Default plus maps, HUD, totem tracking, and configurable automatic disconnect.",
+  "extends": "26.3/default",
+  "mods": ["xaeros-minimap", "xaeros-world-map", "minihud", "totemcounter", "auto-logout"]
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Farming and building",
+  "description": "Multiplayer plus Tweakeroo and Item Scroller for configurable building and farm controls.",
+  "extends": "26.3/multiplayer",
+  "mods": ["tweakeroo", "item-scroller"]
+}
