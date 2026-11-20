@@ -24,6 +24,7 @@ import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
@@ -48,10 +49,55 @@ public final class PortalWatch implements ClientModInitializer {
 	private static final List<BlockPos> known = new ArrayList<>();
 	// Baritone ignored "#" chat sent from inside a client command; from the tick it works.
 	private static final Queue<String> outbox = new ArrayDeque<>();
-	// The trip a find interrupts, so resume can restart it.
+	// The last trip started; it outlives finds, dimension changes and reconnects so resume can pick it up.
 	private static Trip trip;
+	// Whether you're on that trip right now, as opposed to watching or walking to a portal.
+	private static boolean following;
 
-	private record Trip(String label, List<String> commands) {}
+	// A plain goto, or a sweep: a square spiral whose lanes sit one view-width apart, so each strip
+	// of land loads once. Baritone's #explore hugs the edge of loaded chunks from a view-distance
+	// inside it, so each lap only pushed out about a chunk and re-walked the rest.
+	private static final class Trip {
+		final ResourceKey<Level> dimension;
+		final int x, z; // goto target, or sweep origin
+		final int lane; // blocks between sweep lanes; 0 for a goto
+		int leg;
+		BlockPos rejoin; // where a find pulled you off the sweep
+
+		Trip(ResourceKey<Level> dimension, int x, int z, int lane) {
+			this.dimension = dimension;
+			this.x = x;
+			this.z = z;
+			this.lane = lane;
+		}
+
+		String label() {
+			return lane == 0 ? "heading to " + x + " " + z
+					: "sweeping out from " + x + " " + z + " (lap " + (leg / 4 + 1) + ", lanes " + lane + " blocks apart)";
+		}
+
+		// Legs run east, south, west, north, growing one lane every second leg.
+		BlockPos target() {
+			if (lane == 0) return new BlockPos(x, 0, z);
+			if (rejoin != null) return rejoin;
+			int cx = x, cz = z;
+			for (int i = 0; i <= leg; i++) {
+				int len = (i / 2 + 1) * lane;
+				switch (i % 4) {
+					case 0 -> cx += len;
+					case 1 -> cz += len;
+					case 2 -> cx -= len;
+					default -> cz -= len;
+				}
+			}
+			return new BlockPos(cx, 0, cz);
+		}
+
+		String command() {
+			BlockPos t = target();
+			return "goto " + t.getX() + " " + t.getZ();
+		}
+	}
 
 	@Override
 	public void onInitializeClient() {
@@ -73,16 +119,22 @@ public final class PortalWatch implements ClientModInitializer {
 										.then(ClientCommands.argument("z", IntegerArgumentType.integer())
 												.executes(c -> arm(goTo(IntegerArgumentType.getInteger(c, "x"),
 														IntegerArgumentType.getInteger(c, "z")))))))
-						.then(ClientCommands.literal("explore").executes(c -> arm(explore())))
+						.then(ClientCommands.literal("explore").executes(c -> arm(sweep())))
 						.then(ClientCommands.literal("resume").executes(c -> {
+							Minecraft mc = Minecraft.getInstance();
 							if (trip == null) {
 								say("nothing to resume. Start one with spawn, goto <x> <z> or explore.");
+								return 0;
+							}
+							if (mc.level == null || mc.level.dimension() != trip.dimension) {
+								say("your last trip was in another dimension.");
 								return 0;
 							}
 							return arm(trip);
 						}))
 						.then(ClientCommands.literal("off").executes(c -> {
 							armed = false;
+							following = false;
 							approach = null;
 							say("off.");
 							return 1;
@@ -90,18 +142,18 @@ public final class PortalWatch implements ClientModInitializer {
 	}
 
 	private static Trip goTo(int x, int z) {
-		return new Trip("heading to " + x + " " + z, List.of("goto " + x + " " + z));
+		Minecraft mc = Minecraft.getInstance();
+		return mc.level == null ? null : new Trip(mc.level.dimension(), x, z, 0);
 	}
 
-	// Explore spirals out from a fixed origin, so a resume continues the same spiral.
-	private static Trip explore() {
+	private static Trip sweep() {
 		Minecraft mc = Minecraft.getInstance();
-		if (mc.player == null) return null;
+		if (mc.player == null || mc.level == null) return null;
 		BlockPos at = mc.player.blockPosition();
-		// Baritone's default pulls explore toward Y 64; hold the height you started at,
-		// which on the roof keeps it from dropping through any hole players have made.
-		return new Trip("exploring outward from " + at.getX() + " " + at.getZ(),
-				List.of("set exploreMaintainY " + at.getY(), "explore " + at.getX() + " " + at.getZ()));
+		// You load the chunks within view distance on either side of your chunk, so lanes this
+		// far apart overlap by at least a chunk.
+		int lane = 2 * mc.options.getEffectiveRenderDistance() * 16;
+		return new Trip(mc.level.dimension(), at.getX(), at.getZ(), lane);
 	}
 
 	private static void tick(Minecraft mc) {
@@ -110,25 +162,32 @@ public final class PortalWatch implements ClientModInitializer {
 			LOG.info("sending #{}", command);
 			mc.player.connection.sendChat("#" + command);
 		}
-		if (approach != null && mc.player != null) {
-			double dx = mc.player.getX() - (approach.getX() + 0.5), dz = mc.player.getZ() - (approach.getZ() + 0.5);
-			if (dx * dx + dz * dz <= 2.25) {
-				approach = null;
-				ring(mc);
-				say("you're at the portal." + (trip != null ? " /portalwatch resume keeps " + trip.label() + "." : ""));
-			}
+		if (approach != null && mc.player != null && near(mc, approach, 1.5)) {
+			approach = null;
+			ring(mc);
+			say("you're at the portal." + (trip != null ? " /portalwatch resume keeps " + trip.label() + "." : ""));
 		}
 		if (!armed) return;
 		if (mc.level != armedLevel) {
 			armed = false;
+			following = false;
 			known.clear();
 			say("dimension changed, so I turned off. Run it again here.");
 			return;
 		}
-		if (pending == null || mc.player == null) return;
+		if (mc.player == null) return;
+		if (following && trip != null && trip.lane > 0 && near(mc, trip.target(), 3)) {
+			if (trip.rejoin != null) trip.rejoin = null;
+			else trip.leg++;
+			baritone(trip.command());
+		}
+		if (pending == null) return;
 		BlockPos p = pending;
 		pending = null;
 		armed = false;
+		// Come back to this spot, not the corner, so the strip between here and the corner still loads.
+		if (following && trip != null && trip.lane > 0 && trip.rejoin == null) trip.rejoin = mc.player.blockPosition();
+		following = false;
 		known.add(p);
 		approach = standoff(p, mc.player.blockPosition());
 		baritone("goto " + approach.getX() + " " + approach.getZ());
@@ -137,6 +196,11 @@ public final class PortalWatch implements ClientModInitializer {
 		say("portal at " + p.getX() + " " + p.getY() + " " + p.getZ() + ", " + dist
 				+ " blocks away. Walking over; I'll stop " + STANDOFF + " blocks short.");
 		mc.player.sendOverlayMessage(Component.literal("Portal found " + dist + " blocks away").withStyle(ChatFormatting.LIGHT_PURPLE));
+	}
+
+	private static boolean near(Minecraft mc, BlockPos to, double within) {
+		double dx = mc.player.getX() - (to.getX() + 0.5), dz = mc.player.getZ() - (to.getZ() + 0.5);
+		return dx * dx + dz * dz <= within * within;
 	}
 
 	// The column STANDOFF blocks from the portal on the side you're coming from.
@@ -152,14 +216,11 @@ public final class PortalWatch implements ClientModInitializer {
 		mc.getSoundManager().playDelayed(SimpleSoundInstance.forUI(SoundEvents.BELL_BLOCK, 1.0f, 1.0f), 15);
 	}
 
-	// next == null only watches; otherwise it also starts (and remembers) that trip.
+	// next == null only watches; otherwise it also starts (or resumes) that trip.
 	private static int arm(Trip next) {
 		Minecraft mc = Minecraft.getInstance();
 		if (mc.level == null || mc.player == null) return 0;
-		if (armedLevel != mc.level) {
-			known.clear();
-			trip = null;
-		}
+		if (armedLevel != mc.level) known.clear();
 		armedLevel = mc.level;
 		pending = null;
 		approach = null;
@@ -174,12 +235,13 @@ public final class PortalWatch implements ClientModInitializer {
 				if (p != null && !isKnown(p)) known.add(p);
 			}
 		armed = true;
+		following = next != null;
 		if (next != null) trip = next;
 		int ignored = known.size() - before;
 		say("on" + (roofOnly(mc.level) ? " (roof portals only)" : "") + "."
 				+ (ignored > 0 ? " Ignoring " + ignored + " portal(s) already in view." : "")
 				+ (next != null ? " Now " + next.label() + "." : ""));
-		if (next != null) next.commands().forEach(PortalWatch::baritone);
+		if (next != null) baritone(next.command());
 		return 1;
 	}
 
@@ -229,12 +291,13 @@ public final class PortalWatch implements ClientModInitializer {
 		outbox.add(command);
 	}
 
+	// The trip survives so resume works after reconnecting.
 	private static void reset() {
 		armed = false;
+		following = false;
 		armedLevel = null;
 		pending = null;
 		approach = null;
-		trip = null;
 		outbox.clear();
 		known.clear();
 	}
