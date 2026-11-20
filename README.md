@@ -31,6 +31,13 @@ Go service for [BlueMap](https://bluemap.bluecolored.de/) access control. Discor
 - `setup.sh` — Sets up Crafty Controller (podman) and builds the bot
 - `backup.py` — World backup/restore to S3
 
+## Custom client mods
+
+Our own Fabric client mods (AFK Guard, Portal Watch) live in the private
+[`xn-mc-client-mods`](https://github.com/hunter-jsb/xn-mc-client-mods) repo, mounted here at
+`client-mods/` as a submodule. Clone that repo directly to work on them without the server code,
+or run `git submodule update --init client-mods` here.
+
 ## Client mod profiles
 
 Versioned Fabric profiles for default play, multiplayer survival, and farming live
