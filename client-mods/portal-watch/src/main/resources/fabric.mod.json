@@ -1,0 +1,16 @@
+{
+	"schemaVersion": 1,
+	"id": "portalwatch",
+	"version": "${version}",
+	"name": "Portal Watch",
+	"description": "Stops Baritone and rings a bell when a nether portal loads in.",
+	"license": "MIT",
+	"environment": "client",
+	"entrypoints": { "client": ["portalwatch.PortalWatch"] },
+	"depends": {
+		"fabricloader": ">=0.20.1",
+		"minecraft": "~26.3",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}

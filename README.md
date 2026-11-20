@@ -33,10 +33,13 @@ Go service for [BlueMap](https://bluemap.bluecolored.de/) access control. Discor
 
 ## Custom client mods
 
-Our own Fabric client mods (AFK Guard, Portal Watch) live in the private
-[`xn-mc-client-mods`](https://github.com/hunter-jsb/xn-mc-client-mods) repo, mounted here at
-`client-mods/` as a submodule. Clone that repo directly to work on them without the server code,
-or run `git submodule update --init client-mods` here.
+Our own Fabric client mods (AFK Guard, Portal Watch) live in [`client-mods/`](client-mods/).
+To work on them without the server code, use a sparse checkout:
+
+```bash
+git clone --filter=blob:none --sparse https://github.com/hunter-jsb/xn-mc.git
+cd xn-mc && git sparse-checkout set client-mods
+```
 
 ## Client mod profiles
 

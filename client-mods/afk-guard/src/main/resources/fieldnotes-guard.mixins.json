@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "package": "dev.fieldnotes.guard.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "DisconnectedAccessor",
+    "ConnectMixin",
+    "HealthMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

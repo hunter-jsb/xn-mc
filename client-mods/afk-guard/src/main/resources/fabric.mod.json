@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "fieldnotes-afk-guard",
+  "version": "0.1.0",
+  "name": "Fieldnotes AFK Guard",
+  "description": "Explicit AFK monitoring with a persistent safety lock and controlled reconnects.",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "dev.fieldnotes.guard.GuardClient"
+    ]
+  },
+  "mixins": [
+    "fieldnotes-guard.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.20.1",
+    "minecraft": "26.3",
+    "java": ">=25",
+    "fabric-api": "*"
+  }
+}
