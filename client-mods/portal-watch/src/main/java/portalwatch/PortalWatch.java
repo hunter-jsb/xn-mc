@@ -1,7 +1,12 @@
 package portalwatch;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Queue;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
@@ -26,15 +31,21 @@ import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 
 public final class PortalWatch implements ClientModInitializer {
+	private static final Logger LOG = LoggerFactory.getLogger("portalwatch");
 	// Standing height on top of the nether's bedrock ceiling.
 	private static final int ROOF = 128;
 	// One portal's blocks, or a chunk reloading, must not ring twice.
 	private static final int SAME_PORTAL = 16;
+	// Stop short so the walk-up never steps into the portal.
+	private static final int STANDOFF = 3;
 
 	private static boolean armed;
 	private static ClientLevel armedLevel;
 	private static BlockPos pending;
+	private static BlockPos approach;
 	private static final List<BlockPos> known = new ArrayList<>();
+	// Baritone ignored "#" chat sent from inside a client command; from the tick it works.
+	private static final Queue<String> outbox = new ArrayDeque<>();
 
 	@Override
 	public void onInitializeClient() {
@@ -53,12 +64,26 @@ public final class PortalWatch implements ClientModInitializer {
 						.then(ClientCommands.literal("spawn").executes(c -> arm(true)))
 						.then(ClientCommands.literal("off").executes(c -> {
 							armed = false;
+							approach = null;
 							say("off.");
 							return 1;
 						}))));
 	}
 
 	private static void tick(Minecraft mc) {
+		while (!outbox.isEmpty() && mc.player != null) {
+			String command = outbox.poll();
+			LOG.info("sending #{}", command);
+			mc.player.connection.sendChat("#" + command);
+		}
+		if (approach != null && mc.player != null) {
+			double dx = mc.player.getX() - (approach.getX() + 0.5), dz = mc.player.getZ() - (approach.getZ() + 0.5);
+			if (dx * dx + dz * dz <= 2.25) {
+				approach = null;
+				ring(mc);
+				say("you're at the portal.");
+			}
+		}
 		if (!armed) return;
 		if (mc.level != armedLevel) {
 			armed = false;
@@ -71,13 +96,26 @@ public final class PortalWatch implements ClientModInitializer {
 		pending = null;
 		armed = false;
 		known.add(p);
-		baritone("stop");
-		mc.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.BELL_BLOCK, 1.0f, 1.0f));
-		mc.getSoundManager().playDelayed(SimpleSoundInstance.forUI(SoundEvents.BELL_BLOCK, 1.0f, 1.0f), 15);
+		approach = standoff(p, mc.player.blockPosition());
+		baritone("goto " + approach.getX() + " " + approach.getZ());
+		ring(mc);
 		int dist = (int) Math.sqrt(mc.player.blockPosition().distSqr(p));
 		say("portal at " + p.getX() + " " + p.getY() + " " + p.getZ() + ", " + dist
-				+ " blocks away. Baritone stopped. #goto nether_portal walks you to it; /portalwatch spawn keeps going.");
+				+ " blocks away. Walking over; I'll stop " + STANDOFF + " blocks short. /portalwatch spawn keeps going.");
 		mc.player.sendOverlayMessage(Component.literal("Portal found " + dist + " blocks away").withStyle(ChatFormatting.LIGHT_PURPLE));
+	}
+
+	// The column STANDOFF blocks from the portal on the side you're coming from.
+	private static BlockPos standoff(BlockPos portal, BlockPos from) {
+		double dx = from.getX() - portal.getX(), dz = from.getZ() - portal.getZ();
+		double len = Math.max(1, Math.sqrt(dx * dx + dz * dz));
+		return new BlockPos(portal.getX() + (int) Math.round(dx / len * STANDOFF), portal.getY(),
+				portal.getZ() + (int) Math.round(dz / len * STANDOFF));
+	}
+
+	private static void ring(Minecraft mc) {
+		mc.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.BELL_BLOCK, 1.0f, 1.0f));
+		mc.getSoundManager().playDelayed(SimpleSoundInstance.forUI(SoundEvents.BELL_BLOCK, 1.0f, 1.0f), 15);
 	}
 
 	private static int arm(boolean toSpawn) {
@@ -86,6 +124,7 @@ public final class PortalWatch implements ClientModInitializer {
 		if (armedLevel != mc.level) known.clear();
 		armedLevel = mc.level;
 		pending = null;
+		approach = null;
 		int before = known.size();
 		ChunkPos c = mc.player.chunkPosition();
 		int r = mc.options.getEffectiveRenderDistance() + 2;
@@ -99,7 +138,8 @@ public final class PortalWatch implements ClientModInitializer {
 		armed = true;
 		int ignored = known.size() - before;
 		say("on" + (roofOnly(mc.level) ? " (roof portals only)" : "") + "."
-				+ (ignored > 0 ? " Ignoring " + ignored + " portal(s) already in view." : ""));
+				+ (ignored > 0 ? " Ignoring " + ignored + " portal(s) already in view." : "")
+				+ (toSpawn ? " Heading to 0 0." : ""));
 		if (toSpawn) baritone("goto 0 0");
 		return 1;
 	}
@@ -142,18 +182,19 @@ public final class PortalWatch implements ClientModInitializer {
 
 	// Baritone cancels "#..." chat at ClientPacketListener.sendChat, so this never reaches the server.
 	private static void baritone(String command) {
-		Minecraft mc = Minecraft.getInstance();
 		if (!FabricLoader.getInstance().isModLoaded("baritone")) {
 			say("Baritone isn't installed, so I can't run #" + command + ".");
 			return;
 		}
-		if (mc.player != null) mc.player.connection.sendChat("#" + command);
+		outbox.add(command);
 	}
 
 	private static void reset() {
 		armed = false;
 		armedLevel = null;
 		pending = null;
+		approach = null;
+		outbox.clear();
 		known.clear();
 	}
 
