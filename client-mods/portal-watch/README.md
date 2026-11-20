@@ -16,4 +16,4 @@ they were ignored. One-shot: it turns itself off after each find.
 Standing on the nether roof (Y ≥ 128) it only reports roof portals. Every reported portal is
 remembered for the session, and a dimension change turns it off.
 
-Build with `gradle build` (Loom 1.19); the jar lands in `build/libs/`. Tested on JAH 2026-11-20 (0.1.0): detection and the stop worked; `spawn` didn't send its goto, fixed in 0.2.0.
+Build with `gradle build` (Loom 1.19); the jar lands in `build/libs/`. Tested on JAH 2026-11-20: 0.2.0 heads to spawn, finds roof portals, walks up to them and rings on arrival.
