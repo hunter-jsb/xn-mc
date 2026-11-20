@@ -8,6 +8,8 @@ import java.util.Queue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.mojang.brigadier.arguments.IntegerArgumentType;
+
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
@@ -46,6 +48,10 @@ public final class PortalWatch implements ClientModInitializer {
 	private static final List<BlockPos> known = new ArrayList<>();
 	// Baritone ignored "#" chat sent from inside a client command; from the tick it works.
 	private static final Queue<String> outbox = new ArrayDeque<>();
+	// The trip a find interrupts, so resume can restart it.
+	private static Trip trip;
+
+	private record Trip(String label, List<String> commands) {}
 
 	@Override
 	public void onInitializeClient() {
@@ -60,14 +66,42 @@ public final class PortalWatch implements ClientModInitializer {
 		ClientCommandRegistrationCallback.EVENT.register((dispatcher, ctx) -> dispatcher.register(
 				ClientCommands.literal("portalwatch")
 						.executes(c -> status())
-						.then(ClientCommands.literal("on").executes(c -> arm(false)))
-						.then(ClientCommands.literal("spawn").executes(c -> arm(true)))
+						.then(ClientCommands.literal("on").executes(c -> arm(null)))
+						.then(ClientCommands.literal("spawn").executes(c -> arm(goTo(0, 0))))
+						.then(ClientCommands.literal("goto")
+								.then(ClientCommands.argument("x", IntegerArgumentType.integer())
+										.then(ClientCommands.argument("z", IntegerArgumentType.integer())
+												.executes(c -> arm(goTo(IntegerArgumentType.getInteger(c, "x"),
+														IntegerArgumentType.getInteger(c, "z")))))))
+						.then(ClientCommands.literal("explore").executes(c -> arm(explore())))
+						.then(ClientCommands.literal("resume").executes(c -> {
+							if (trip == null) {
+								say("nothing to resume. Start one with spawn, goto <x> <z> or explore.");
+								return 0;
+							}
+							return arm(trip);
+						}))
 						.then(ClientCommands.literal("off").executes(c -> {
 							armed = false;
 							approach = null;
 							say("off.");
 							return 1;
 						}))));
+	}
+
+	private static Trip goTo(int x, int z) {
+		return new Trip("heading to " + x + " " + z, List.of("goto " + x + " " + z));
+	}
+
+	// Explore spirals out from a fixed origin, so a resume continues the same spiral.
+	private static Trip explore() {
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.player == null) return null;
+		BlockPos at = mc.player.blockPosition();
+		// Baritone's default pulls explore toward Y 64; hold the height you started at,
+		// which on the roof keeps it from dropping through any hole players have made.
+		return new Trip("exploring outward from " + at.getX() + " " + at.getZ(),
+				List.of("set exploreMaintainY " + at.getY(), "explore " + at.getX() + " " + at.getZ()));
 	}
 
 	private static void tick(Minecraft mc) {
@@ -81,7 +115,7 @@ public final class PortalWatch implements ClientModInitializer {
 			if (dx * dx + dz * dz <= 2.25) {
 				approach = null;
 				ring(mc);
-				say("you're at the portal.");
+				say("you're at the portal." + (trip != null ? " /portalwatch resume keeps " + trip.label() + "." : ""));
 			}
 		}
 		if (!armed) return;
@@ -101,7 +135,7 @@ public final class PortalWatch implements ClientModInitializer {
 		ring(mc);
 		int dist = (int) Math.sqrt(mc.player.blockPosition().distSqr(p));
 		say("portal at " + p.getX() + " " + p.getY() + " " + p.getZ() + ", " + dist
-				+ " blocks away. Walking over; I'll stop " + STANDOFF + " blocks short. /portalwatch spawn keeps going.");
+				+ " blocks away. Walking over; I'll stop " + STANDOFF + " blocks short.");
 		mc.player.sendOverlayMessage(Component.literal("Portal found " + dist + " blocks away").withStyle(ChatFormatting.LIGHT_PURPLE));
 	}
 
@@ -118,10 +152,14 @@ public final class PortalWatch implements ClientModInitializer {
 		mc.getSoundManager().playDelayed(SimpleSoundInstance.forUI(SoundEvents.BELL_BLOCK, 1.0f, 1.0f), 15);
 	}
 
-	private static int arm(boolean toSpawn) {
+	// next == null only watches; otherwise it also starts (and remembers) that trip.
+	private static int arm(Trip next) {
 		Minecraft mc = Minecraft.getInstance();
 		if (mc.level == null || mc.player == null) return 0;
-		if (armedLevel != mc.level) known.clear();
+		if (armedLevel != mc.level) {
+			known.clear();
+			trip = null;
+		}
 		armedLevel = mc.level;
 		pending = null;
 		approach = null;
@@ -136,18 +174,20 @@ public final class PortalWatch implements ClientModInitializer {
 				if (p != null && !isKnown(p)) known.add(p);
 			}
 		armed = true;
+		if (next != null) trip = next;
 		int ignored = known.size() - before;
 		say("on" + (roofOnly(mc.level) ? " (roof portals only)" : "") + "."
 				+ (ignored > 0 ? " Ignoring " + ignored + " portal(s) already in view." : "")
-				+ (toSpawn ? " Heading to 0 0." : ""));
-		if (toSpawn) baritone("goto 0 0");
+				+ (next != null ? " Now " + next.label() + "." : ""));
+		if (next != null) next.commands().forEach(PortalWatch::baritone);
 		return 1;
 	}
 
 	private static int status() {
 		Minecraft mc = Minecraft.getInstance();
 		say((armed ? "on" : "off") + (armed && roofOnly(mc.level) ? " (roof portals only)" : "")
-				+ ", " + known.size() + " portal(s) remembered.");
+				+ ", " + known.size() + " portal(s) remembered"
+				+ (trip != null ? ", last trip: " + trip.label() : "") + ".");
 		return 1;
 	}
 
@@ -194,6 +234,7 @@ public final class PortalWatch implements ClientModInitializer {
 		armedLevel = null;
 		pending = null;
 		approach = null;
+		trip = null;
 		outbox.clear();
 		known.clear();
 	}
