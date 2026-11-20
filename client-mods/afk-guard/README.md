@@ -1,27 +1,31 @@
 # Fieldnotes AFK Guard
 
-Custom client mod for Hunter's Minecraft **26.3**, Fabric Loader **0.20.1**, Fabric API **0.165.0+26.3**, Java **25**, and `justanotherhardcore.net:25565`. Installed disabled. This is an initial implementation, not yet validated in a running game on JAH.
+Custom client mod for Minecraft **26.3** (Fabric Loader 0.20.1, Fabric API 0.165.0+26.3, Java 25), scoped to
+`justanotherhardcore.net:25565`. Arm it before going AFK; any damage logs you out, and a server restart or idle kick
+reconnects you.
 
-One state machine owns safety monitoring and reconnects. A safety trip is written to disk **before** closing the connection, cancels queued retries, and blocks Minecraft's normal multiplayer connection entry point until explicitly acknowledged offline. While AFK is armed, connection attempts outside the guard’s approved retry path also lock; another reconnect mod cannot use that entry point to bypass classification. Killing/restarting Minecraft while armed also boots locked. Acknowledging a lock leaves monitoring disabled and never initiates a connection.
-
-## Controls
-
-An **AFK Guard** button appears on the title, pause, and disconnect screens. The disconnect screen shows monitoring state and reconnect countdown.
+0.2.0 cut 0.1.0's persistent lock: a trip used to block every connection, your own included, until you found an
+Acknowledge button on a separate screen. Now a trip only turns the guard off, so nothing reconnects automatically, and
+you rejoin from the server list as usual. It has no buttons and nothing on disk; it says one line when you arm it and
+when it rejoins, and the disconnect screen shows the countdown while a reconnect is pending.
 
 | Command | Behavior |
 | --- | --- |
-| `/afkguard` | Open the guard controls |
-| `/afkguard arm` | Arm for 12 hours; requires full health, food ≥18/20 and no active hurt animation |
-| `/afkguard off` | Disable normal monitoring/retries; cannot clear a safety lock |
-| `/afkguard status` | Show current state |
-| `/afkguard test` | Trigger the actual persistent safety logout without taking damage |
-| `/afkguard test-restart` | Deliberately disconnect as a benign restart; first reconnect attempt after 30 seconds |
+| `/afkguard` | Status |
+| `/afkguard arm` | Arm for 12 hours; needs full health, food ≥18/20 and no hurt animation |
+| `/afkguard off` | Turn off; also cancels a pending reconnect |
+| `/afkguard test` | The real damage logout, without the damage |
+| `/afkguard test-restart` | Disconnect as a benign restart; the first reconnect comes 30 seconds later |
 
-When armed, the first observed health/absorption loss or new hurt animation locks you offline. Independent cutoffs are health ≤16/20 (eight hearts), hunger ≤12/20 (six drumsticks), and 12 elapsed hours. The time limit includes disconnected time and uses the local monotonic clock. It must be armed explicitly for every new AFK session. Manual return to the title/server list cancels retries.
+Armed, it logs you out on the first health or absorption loss or new hurt animation, at health ≤16/20, at food ≤12/20,
+or after 12 hours (disconnected time included). Leaving the disconnect screen yourself turns it off, and so does a
+game restart.
 
-Initial reconnects are allowed for narrowly recognized server shutdown/restart/maintenance messages and idle kicks. This includes JAH's observed `✘ Proxy shutting down.` message. Connection-refused/time-out errors can continue an already approved retry chain; an initial time-out alone is not enough. Unknown messages, bans, death/hardcore notices, authentication failures and operator kicks lock you offline. Backoff is 30, 60, 120, then 240 seconds, capped at 120 attempts and the original session deadline. Successful rejoins retain monitoring and the previous health baseline; no invulnerable grace period is assumed.
-
-State: `.minecraft/config/fieldnotes-afk-guard-state.properties`. Missing state starts OFF; unreadable/corrupt existing state starts LOCKED. Do not delete this file to automate clearing a lock. The mod has no reconnect-on-launch feature.
+Reconnects only follow recognized shutdown, restart, maintenance and idle-kick messages, including JAH's
+`✘ Proxy shutting down.`. Connection refused or timed out keeps an existing reconnect chain going but doesn't start one.
+Anything else turns it off: unknown messages, bans, death and operator kicks. Backoff is 30, 60, 120, then 240 seconds,
+up to 120 attempts within the 12 hours. A successful rejoin keeps the pre-kick health baseline, so damage during the gap
+still trips.
 
 ## Auto Eater
 
@@ -31,18 +35,11 @@ Blacklisted foods include golden/enchanted apples, chorus fruit, rotten flesh, s
 
 ## Validation
 
-Run `python build.py` for compilation against the locally installed game APIs and 45 state-machine/persistence checks. Run `python smoke.py` for Fabric loading and transformation of all guard mixins plus initialization of the guard entrypoint alongside the installed mod set, in a separate game directory. The smoke test exits before graphics initialization or connecting anywhere. It does not test gameplay, live packet delivery, actual screen interaction, or server behavior.
-
-Before unattended use, stand safely at base, fully healed and fed:
-
-1. Restart Minecraft to load the new jars. Confirm **AFK Guard: OFF** and Auto Eater is enabled.
-2. Run `/afkguard arm`, then `/afkguard test`. Expect a safety logout, no reconnect countdown, and no automatic rejoin after waiting over a minute.
-3. Restart Minecraft while still locked. Confirm a manual server connection is blocked and opens AFK Guard. Acknowledge the lock there; this must leave you offline with monitoring OFF.
-4. Join manually at base. Arm, then run `/afkguard test-restart`. Expect a 30-second countdown, a reconnect, and monitoring still ARMED. Use `/afkguard status` to verify. Then `/afkguard off`.
-5. Verify Auto Eater on safe ground, and the live health/food detection on a disposable local test world/server before trusting an overnight JAH session. The production guard intentionally arms only on the JAH address; use an isolated test build to change that restriction for a local server.
-
-These checks remain to be performed in-game. A client mod cannot prevent damage already processed by the server, undo a fatal hit, or act while the client is frozen. A disconnect may also interact with the existing logout stasis chamber: the guard never promises which position a subsequent login will use.
+`python build.py` compiles against the installed game jars and runs the policy checks; `python smoke.py` loads the
+mixins and entrypoint under Fabric in a separate game directory, without starting the game or connecting. Neither
+covers live damage or reconnects. A client mod can't undo damage the server already applied or act while the client is
+frozen.
 
 ## Files
 
-Source is in `src/main/java`; tests are in `src/test/java`. The build artifact is `build/fieldnotes-afk-guard-0.1.0+26.3.jar`. The `guard-smoke.jar` test helper belongs only inside the isolated smoke directory and must never be copied into the real mods folder.
+Source is in `src/main/java`; tests are in `src/test/java`. The build artifact is `build/fieldnotes-afk-guard-0.2.0+26.3.jar`. The `guard-smoke.jar` test helper belongs only inside the isolated smoke directory and must never be copied into the real mods folder.

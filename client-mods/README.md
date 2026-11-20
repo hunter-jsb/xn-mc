@@ -5,7 +5,7 @@ Part of xn-mc; see the root README for a sparse checkout that fetches only this 
 
 | Mod | What it does | Build |
 | --- | --- | --- |
-| [`afk-guard`](afk-guard/) | Logs out and locks on damage, low health or hunger while AFK on justanotherhardcore.net; reconnects after benign kicks | `python3 afk-guard/build.py` |
+| [`afk-guard`](afk-guard/) | Logs you out on damage, low health or hunger while AFK on justanotherhardcore.net; reconnects after server restarts and idle kicks | `python3 afk-guard/build.py` |
 | [`portal-watch`](portal-watch/) | Stops Baritone and rings a bell when a nether portal loads in; roof-aware | `cd portal-watch && gradle build` |
 
 Install by copying the built jar into `~/.var/app/com.mojang.Minecraft/.minecraft/mods/` with the game closed.

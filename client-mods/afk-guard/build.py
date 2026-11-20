@@ -19,7 +19,7 @@ testclasses = BUILD / "tests"
 testclasses.mkdir(exist_ok=True)
 subprocess.run(["javac", "--release", "25", "-classpath", str(CLASSES), "-d", str(testclasses), *map(str, BASE.joinpath("src/test/java").rglob("*.java"))], check=True)
 subprocess.run(["java", "-ea", "-cp", os.pathsep.join(map(str, [CLASSES, testclasses])), "dev.fieldnotes.guard.GuardTest"], check=True)
-jar = BUILD / "fieldnotes-afk-guard-0.1.0+26.3.jar"
+jar = BUILD / "fieldnotes-afk-guard-0.2.0+26.3.jar"
 with zipfile.ZipFile(jar, "w", zipfile.ZIP_DEFLATED) as z:
     for root in [CLASSES, BASE / "src/main/resources"]:
         for f in root.rglob("*"):

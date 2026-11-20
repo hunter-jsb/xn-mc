@@ -3,7 +3,7 @@ public final class Smoke implements net.fabricmc.loader.api.entrypoint.PreLaunch
  public void onPreLaunch() {
   try {
    ClassLoader loader = Thread.currentThread().getContextClassLoader();
-   for (String name : new String[]{"dev.fieldnotes.guard.GuardClient", "dev.fieldnotes.guard.GuardScreen", "net.minecraft.client.gui.screens.ConnectScreen", "net.minecraft.client.gui.screens.DisconnectedScreen", "net.minecraft.client.multiplayer.ClientPacketListener", "com.autoeater.AutoEaterClient"}) {
+   for (String name : new String[]{"dev.fieldnotes.guard.GuardClient", "net.minecraft.client.gui.screens.ConnectScreen", "net.minecraft.client.gui.screens.DisconnectedScreen", "net.minecraft.client.multiplayer.ClientPacketListener", "com.autoeater.AutoEaterClient"}) {
     Class.forName(name, false, loader);
     System.out.println("SMOKE_TRANSFORM_OK " + name);
    }

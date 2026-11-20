@@ -30,7 +30,7 @@ subprocess.run(['javac', '--release', '25', '-proc:none', '-cp', classpath, '-d'
 for p in MC.joinpath('mods').glob('*.jar'):
     target = SMOKE / 'mods' / p.name
     if not target.exists(): target.symlink_to(p)
-guard_jar = BASE / 'build/fieldnotes-afk-guard-0.1.0+26.3.jar'
+guard_jar = BASE / 'build/fieldnotes-afk-guard-0.2.0+26.3.jar'
 target = SMOKE / 'mods' / guard_jar.name
 if target.is_symlink(): target.unlink()
 target.symlink_to(guard_jar)

@@ -1,49 +1,31 @@
 package dev.fieldnotes.guard;
 
-import java.io.IOException;
 import java.util.Locale;
 
-/** Single owner of both safety and retry policy. All calls are on the client thread. */
+/** Safety and retry policy. All calls are on the client thread. */
 public final class Guard {
-    public enum Mode { OFF, ARMED, LOCKED }
-    public interface Store { void save(Mode mode, String reason) throws IOException; }
-    private final Store store;
-    private Mode mode;
-    private String reason;
+    public static final float MIN_HEALTH = 16; // Eight hearts, plus first-damage detection.
+    public static final int MIN_FOOD = 12;     // Six drumsticks; auto-eat should act well before this.
+    public static final int MAX_ATTEMPTS = 120;
+    public static final String LIMIT = "12-hour limit reached";
+    private boolean armed;
+    private String reason = "off";
     private float previousHealth, previousAbsorption;
     private long deadline, nextRetry;
     private int attempts;
     private boolean retryChain;
-    public static final float MIN_HEALTH = 16; // Eight hearts, plus first-damage detection.
-    public static final int MIN_FOOD = 12;     // Six drumsticks; auto-eat should act well before this.
-    public static final int MAX_ATTEMPTS = 120;
 
-    public Guard(Store store, Mode saved, String savedReason) {
-        this.store = store;
-        mode = saved == Mode.OFF ? Mode.OFF : Mode.LOCKED;
-        reason = saved == Mode.ARMED ? "Previous AFK session interrupted; inspect before returning" : savedReason;
-    }
-    public Mode mode() { return mode; }
+    public boolean armed() { return armed; }
     public String reason() { return reason; }
-    public boolean locked() { return mode == Mode.LOCKED; }
-    public boolean armed() { return mode == Mode.ARMED; }
+    public long deadline() { return deadline; }
     public long nextRetry() { return nextRetry; }
     public int attempts() { return attempts; }
-    public boolean permitConnection(boolean approvedRetry) {
-        if (armed() && !approvedRetry) lock("Connection requested outside the approved AFK retry path");
-        return !locked();
-    }
 
-    public void arm(float health, float maxHealth, float absorption, int food, long now, long duration) throws IOException {
-        if (locked()) throw new IllegalStateException("Acknowledge the safety lock first");
+    public void arm(float health, float maxHealth, float absorption, int food, long now, long duration) {
         if (!Float.isFinite(health) || health < maxHealth || health <= MIN_HEALTH || food < 18)
-            throw new IllegalStateException("Heal fully and eat to at least nine drumsticks before arming");
-        if (duration < 60_000 || duration > 24 * 60 * 60_000L) throw new IllegalArgumentException("Duration must be 1 minute to 24 hours");
-        // An interrupted process with ARMED on disk also boots locked.
-        try { store.save(Mode.ARMED, "AFK monitoring"); }
-        catch (IOException e) { lock("Could not persist AFK state"); throw e; }
-        mode = Mode.ARMED;
-        reason = "AFK monitoring";
+            throw new IllegalStateException("heal fully and eat to at least nine drumsticks first");
+        armed = true;
+        reason = "armed";
         previousHealth = health;
         previousAbsorption = absorption;
         deadline = now + duration;
@@ -51,65 +33,53 @@ public final class Guard {
         attempts = 0;
         retryChain = false;
     }
-    public void off() throws IOException {
-        if (locked()) return; // Off must never clear a safety trip.
-        nextRetry = 0;
-        retryChain = false;
-        try { store.save(Mode.OFF, "Disabled"); }
-        catch (IOException e) { lock("Could not persist disabled state"); throw e; }
-        mode = Mode.OFF;
-        reason = "Disabled";
-    }
-    public void acknowledge() throws IOException {
-        // Only explicit user action may clear the durable lock. Clearing does not arm or connect.
-        store.save(Mode.OFF, "Safety lock acknowledged; monitoring disabled");
-        mode = Mode.OFF;
-        reason = "Safety lock acknowledged; monitoring disabled";
-        nextRetry = 0;
-        retryChain = false;
-    }
-    public void lock(String why) {
-        mode = Mode.LOCKED;
+
+    // Every stop lands here. Off means nothing reconnects automatically; connecting yourself is never blocked.
+    public void off(String why) {
+        armed = false;
         reason = why;
         nextRetry = 0;
         retryChain = false;
-        try { store.save(Mode.LOCKED, why); }
-        catch (IOException e) { reason += " (state write failed; prior ARMED state also blocks on restart)"; }
     }
-    /** Returns true whenever the current connection must be closed. No grace period after joining. */
+
+    /** True when the connection must close. No grace period after joining. */
     public boolean sample(float health, float absorption, int food, boolean hurt, long now) {
-        if (!armed()) return false;
-        if (!Float.isFinite(health) || health <= MIN_HEALTH) lock("Health at or below eight hearts");
-        else if (hurt || health < previousHealth || absorption < previousAbsorption) lock("Damage observed while AFK");
-        else if (food <= MIN_FOOD) lock("Food at or below six drumsticks");
-        else if (now >= deadline) lock("AFK time limit reached");
+        if (!armed) return false;
+        String trip = !Float.isFinite(health) || health <= MIN_HEALTH ? "health at or below eight hearts"
+                : hurt || health < previousHealth || absorption < previousAbsorption ? "took damage"
+                : food <= MIN_FOOD ? "food at or below six drumsticks"
+                : now >= deadline ? LIMIT : null;
+        // The baseline survives reconnects, so damage taken during the gap still trips.
         previousHealth = health;
         previousAbsorption = absorption;
-        return locked();
+        if (trip != null) off(trip);
+        return trip != null;
     }
-    public boolean expire(long now) {
-        if (armed() && now >= deadline) lock("AFK time limit reached");
-        return locked();
-    }
+
     public void disconnected(String message, long now) {
-        if (!armed()) return;
-        if (expire(now)) return;
-        if (!retryable(message, retryChain)) { lock("Unrecognized or non-retryable disconnect: " + message); return; }
-        if (attempts >= MAX_ATTEMPTS) { lock("Reconnect attempt limit reached"); return; }
-        retryChain = true;
-        nextRetry = now + Math.min(300_000, 30_000L << Math.min(attempts, 3));
+        if (!armed) return;
+        if (now >= deadline) off(LIMIT);
+        else if (!retryable(message, retryChain)) off("not reconnecting after: " + message);
+        else if (attempts >= MAX_ATTEMPTS) off("gave up after " + MAX_ATTEMPTS + " reconnects");
+        else {
+            retryChain = true;
+            nextRetry = now + Math.min(300_000, 30_000L << Math.min(attempts, 3));
+        }
     }
+
     public boolean takeRetry(long now) {
-        if (!armed() || expire(now) || nextRetry == 0 || now < nextRetry) return false;
+        if (!armed || nextRetry == 0 || now < nextRetry) return false;
+        if (now >= deadline) { off(LIMIT); return false; }
         nextRetry = 0;
         attempts++;
         return true;
     }
+
     public void joined() {
         nextRetry = 0;
         retryChain = false;
-        // Keep the pre-kick health baseline: damage during the gap must lock, too.
     }
+
     static boolean retryable(String message, boolean followingApprovedKick) {
         String m = message.toLowerCase(Locale.ROOT).replaceAll("§.", "").strip()
                 .replaceFirst("^[✘✖✕×⚠!\\s]+", "").replaceFirst("[.!]+$", "").strip();
@@ -120,7 +90,7 @@ public final class Guard {
                 || m.equals("server is shutting down") || m.equals("server shutting down")
                 || m.matches("(?s)^(the )?server (is )?(restarting|under maintenance)[.! ]*$")
                 || m.matches("(?s)^you have been kicked for (idling|being idle).*")) return true;
-        // Network trouble alone does not initiate a new reconnect session.
+        // Network trouble alone does not start a reconnect chain.
         return followingApprovedKick && (m.equals("disconnected") || m.equals("timed out")
                 || m.contains("connection refused") || m.contains("connection timed out")
                 || m.contains("getsockopt") || m.equals("end of stream"));
