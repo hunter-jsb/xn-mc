@@ -17,6 +17,7 @@ import net.minecraft.resources.Identifier;
 import xnmc.afkguard.AfkGuard;
 import xnmc.ghastpilot.GhastPilot;
 import xnmc.portalwatch.PortalWatch;
+import xnmc.replays.ReplayPrune;
 
 public final class Xnmc implements ClientModInitializer {
 	public static final KeyMapping.Category KEYS = KeyMapping.Category.register(Identifier.fromNamespaceAndPath("xnmc", "xnmc"));
@@ -28,6 +29,7 @@ public final class Xnmc implements ClientModInitializer {
 		AfkGuard.init();
 		GhastPilot.init();
 		PortalWatch.init();
+		ReplayPrune.init();
 		menu = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.xnmc.menu", InputConstants.KEY_SEMICOLON, KEYS));
 		ClientTickEvents.END_CLIENT_TICK.register(mc -> {
 			while (menu.consumeClick()) mc.gui.setScreen(new XnmcScreen(null));
