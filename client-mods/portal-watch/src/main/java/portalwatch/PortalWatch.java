@@ -13,6 +13,7 @@ import com.mojang.brigadier.arguments.IntegerArgumentType;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
+import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
@@ -27,6 +28,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.entity.animal.happyghast.HappyGhast;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.chunk.LevelChunk;
@@ -47,8 +49,8 @@ public final class PortalWatch implements ClientModInitializer {
 	private static BlockPos pending;
 	private static BlockPos approach;
 	private static final List<BlockPos> known = new ArrayList<>();
-	// Baritone ignored "#" chat sent from inside a client command; from the tick it works.
-	private static final Queue<String> outbox = new ArrayDeque<>();
+	// Destinations wait for the tick: Baritone ignored "#" chat sent from inside a client command.
+	private static final Queue<BlockPos> outbox = new ArrayDeque<>();
 	// The last trip started; it outlives finds, dimension changes and reconnects so resume can pick it up.
 	private static Trip trip;
 	// Whether you're on that trip right now, as opposed to watching or walking to a portal.
@@ -93,10 +95,6 @@ public final class PortalWatch implements ClientModInitializer {
 			return new BlockPos(cx, 0, cz);
 		}
 
-		String command() {
-			BlockPos t = target();
-			return "goto " + t.getX() + " " + t.getZ();
-		}
 	}
 
 	@Override
@@ -157,12 +155,8 @@ public final class PortalWatch implements ClientModInitializer {
 	}
 
 	private static void tick(Minecraft mc) {
-		while (!outbox.isEmpty() && mc.player != null) {
-			String command = outbox.poll();
-			LOG.info("sending #{}", command);
-			mc.player.connection.sendChat("#" + command);
-		}
-		if (approach != null && mc.player != null && near(mc, approach, 1.5)) {
+		while (!outbox.isEmpty() && mc.player != null) send(mc, outbox.poll());
+		if (approach != null && mc.player != null && near(mc, approach, 2.5)) {
 			approach = null;
 			ring(mc);
 			say("you're at the portal." + (trip != null ? " /portalwatch resume keeps " + trip.label() + "." : ""));
@@ -179,7 +173,7 @@ public final class PortalWatch implements ClientModInitializer {
 		if (following && trip != null && trip.lane > 0 && near(mc, trip.target(), 3)) {
 			if (trip.rejoin != null) trip.rejoin = null;
 			else trip.leg++;
-			baritone(trip.command());
+			moveTo(trip.target());
 		}
 		if (pending == null) return;
 		BlockPos p = pending;
@@ -190,11 +184,11 @@ public final class PortalWatch implements ClientModInitializer {
 		following = false;
 		known.add(p);
 		approach = standoff(p, mc.player.blockPosition());
-		baritone("goto " + approach.getX() + " " + approach.getZ());
+		moveTo(approach);
 		ring(mc);
 		int dist = (int) Math.sqrt(mc.player.blockPosition().distSqr(p));
 		say("portal at " + p.getX() + " " + p.getY() + " " + p.getZ() + ", " + dist
-				+ " blocks away. Walking over; I'll stop " + STANDOFF + " blocks short.");
+				+ " blocks away. Heading over; I'll stop " + STANDOFF + " blocks short.");
 		mc.player.sendOverlayMessage(Component.literal("Portal found " + dist + " blocks away").withStyle(ChatFormatting.LIGHT_PURPLE));
 	}
 
@@ -241,7 +235,7 @@ public final class PortalWatch implements ClientModInitializer {
 		say("on" + (roofOnly(mc.level) ? " (roof portals only)" : "") + "."
 				+ (ignored > 0 ? " Ignoring " + ignored + " portal(s) already in view." : "")
 				+ (next != null ? " Now " + next.label() + "." : ""));
-		if (next != null) baritone(next.command());
+		if (next != null) moveTo(next.target());
 		return 1;
 	}
 
@@ -282,13 +276,29 @@ public final class PortalWatch implements ClientModInitializer {
 		return false;
 	}
 
-	// Baritone cancels "#..." chat at ClientPacketListener.sendChat, so this never reaches the server.
-	private static void baritone(String command) {
-		if (!FabricLoader.getInstance().isModLoaded("baritone")) {
-			say("Baritone isn't installed, so I can't run #" + command + ".");
-			return;
-		}
-		outbox.add(command);
+	private static void moveTo(BlockPos to) {
+		outbox.add(to);
+	}
+
+	// Riding a happy ghast, Ghast Pilot flies you; on foot, Baritone walks. The choice is made per leg,
+	// so getting on or off mid-trip just switches who carries the next one.
+	private static void send(Minecraft mc, BlockPos to) {
+		String xz = to.getX() + " " + to.getZ();
+		if (mc.player.getVehicle() instanceof HappyGhast && FabricLoader.getInstance().isModLoaded("ghastpilot")) {
+			LOG.info("flying to {}", xz);
+			try {
+				// Runs Ghast Pilot's client command locally; nothing is sent to the server.
+				ClientCommands.getActiveDispatcher().execute("ghastpilot steer " + xz,
+						(FabricClientCommandSource) mc.player.connection.getSuggestionsProvider());
+			} catch (Exception e) {
+				LOG.warn("ghastpilot steer failed", e);
+				say("couldn't hand the flight to Ghast Pilot: " + e.getMessage());
+			}
+		} else if (FabricLoader.getInstance().isModLoaded("baritone")) {
+			LOG.info("sending #goto {}", xz);
+			// Baritone cancels "#..." chat at ClientPacketListener.sendChat, so this never reaches the server.
+			mc.player.connection.sendChat("#goto " + xz);
+		} else say("neither Baritone nor Ghast Pilot (on a happy ghast) can take me to " + xz + ".");
 	}
 
 	// The trip survives so resume works after reconnecting.

@@ -1,7 +1,7 @@
 # Portal Watch
 
 Watches newly loaded chunks for nether portals. When one appears it rings a bell, prints the
-coordinates and has Baritone walk you to a spot 3 blocks short of it, ringing again on arrival.
+coordinates and takes you to a spot 3 blocks short of it (Baritone on foot, Ghast Pilot on a happy ghast), ringing again on arrival.
 Baritone commands go out as `#` chat on the next client tick; Baritone cancels them at
 `ClientPacketListener.sendChat`, so nothing reaches the server. Sent from inside a client command
 they were ignored. One-shot: it turns itself off after each find.
@@ -15,6 +15,10 @@ they were ignored. One-shot: it turns itself off after each find.
 | `/portalwatch explore` | Watch and sweep a square spiral out from here, lanes one view-width apart (2 × view distance in chunks) |
 | `/portalwatch resume` | Continue the last trip: back to where a find pulled you off the sweep, then on round the spiral |
 | `/portalwatch off` | Stop watching |
+
+Riding a happy ghast with Ghast Pilot installed, every leg (spawn, goto, the explore sweep, the walk-up to a portal)
+is flown by Ghast Pilot instead of Baritone; on foot it's Baritone. The choice is made per leg, so you can mount or
+dismount mid-trip.
 
 Standing on the nether roof (Y ≥ 128) it only reports roof portals. Every reported portal is
 remembered until you change dimension, which turns it off. The last trip survives dimension changes
