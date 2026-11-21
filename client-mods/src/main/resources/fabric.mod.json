@@ -1,0 +1,24 @@
+{
+	"schemaVersion": 1,
+	"id": "xnmc",
+	"version": "${version}",
+	"name": "XNMC",
+	"description": "Our client tools in one mod: Portal Watch, Ghast Pilot and AFK Guard, behind one menu.",
+	"license": "MIT",
+	"environment": "client",
+	"entrypoints": {
+		"client": ["xnmc.Xnmc"],
+		"modmenu": ["xnmc.XnmcModMenu"]
+	},
+	"mixins": ["xnmc.mixins.json"],
+	"depends": {
+		"fabricloader": ">=0.20.1",
+		"minecraft": "~26.3",
+		"java": ">=25",
+		"fabric-api": "*"
+	},
+	"suggests": {
+		"baritone": "*",
+		"modmenu": "*"
+	}
+}

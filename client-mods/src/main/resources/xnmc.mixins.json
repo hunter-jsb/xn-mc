@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "package": "xnmc.afkguard.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "DisconnectedAccessor",
+    "HealthMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
