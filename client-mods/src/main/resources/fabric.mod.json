@@ -19,6 +19,7 @@
 	},
 	"suggests": {
 		"baritone": "*",
+		"baritone-meteor": "*",
 		"modmenu": "*"
 	}
 }

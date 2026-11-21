@@ -294,7 +294,8 @@ public final class PortalWatch {
 		if (GhastPilot.ghast() != null) {
 			LOG.info("flying to {}", xz);
 			GhastPilot.steer(to.getX(), to.getZ());
-		} else if (FabricLoader.getInstance().isModLoaded("baritone")) {
+		} else if (FabricLoader.getInstance().isModLoaded("baritone") || FabricLoader.getInstance().isModLoaded("baritone-meteor")) {
+			// baritone-meteor is the unobfuscated build Meteor Client needs; same "#" commands.
 			LOG.info("sending #goto {}", xz);
 			// Baritone cancels "#..." chat at ClientPacketListener.sendChat, so this never reaches the server.
 			mc.player.connection.sendChat("#goto " + xz);
