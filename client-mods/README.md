@@ -80,9 +80,3 @@ trips. A client mod can't undo damage the server already applied or act while th
 Auto Eater 1.5.1 (installed separately, from Modrinth) pairs with it: `.minecraft/config/auto_eater.json` scans the
 inventory and eats at 18/20, in the main hand, using the last hotbar slot. Keep cooked food on you and face open air
 when AFK; the guard's food cutoff is the fallback.
-
-## Replay pruning (`xnmc/replays`)
-
-ReplayMod (installed separately) records every server session as evidence and never deletes one. At game start XNMC
-deletes recordings older than 7 days that still have ReplayMod's automatic date name; rename one in the Replay Viewer
-to keep it.
