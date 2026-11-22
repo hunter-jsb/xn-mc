@@ -58,11 +58,14 @@ Running, it:
 - backs off along the tunnel to the newest waypoint at least 6 blocks away with no lava within 3, then stops, when lava
   is in or beside your space or flowing at or above your feet within 2 blocks;
 - drinks a fire resistance potion from the hotbar when under 45 seconds remain, and stops if there's none;
+- drops junk when fewer than 3 inventory slots are free: it pauses, waits until you're still, turns back down the dug
+  tunnel, opens the inventory and throws netherrack, blackstone, basalt, gravel, flint, soul sand/soil, magma and
+  cobblestone a stack every 4 ticks, keeping the biggest netherrack stack for Baritone to bridge with, then carries on;
 - stops when AFK Guard turns off (damage logs you out), no hotbar pickaxe has more than 10 uses left, the inventory is
-  full, Baritone stays stuck past three skipped waypoints, or the 16 lanes are done;
+  still nearly full after dropping junk, Baritone stays stuck past three skipped waypoints, or the 16 lanes are done;
 - skips debris that touches lava, since opening it would let the lava in, and debris it can't reach in a minute.
 
-Stops ring three bells. Netherrack fills the inventory after about 1,000 blocks of tunnel.
+Stops ring three bells.
 
 ## AFK Guard (`xnmc/afkguard`)
 
