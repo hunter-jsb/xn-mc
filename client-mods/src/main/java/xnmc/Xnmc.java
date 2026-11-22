@@ -1,5 +1,7 @@
 package xnmc;
 
+import java.util.List;
+
 import com.mojang.blaze3d.platform.InputConstants;
 
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
@@ -15,19 +17,26 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import xnmc.afkguard.AfkGuard;
+import xnmc.debris.DebrisMiner;
 import xnmc.ghastpilot.GhastPilot;
 import xnmc.portalwatch.PortalWatch;
 
 public final class Xnmc implements ClientModInitializer {
 	public static final KeyMapping.Category KEYS = KeyMapping.Category.register(Identifier.fromNamespaceAndPath("xnmc", "xnmc"));
 
+	// The menu's list, in order. A new feature is a package with init() and feature(), added here.
+	public static List<Feature> FEATURES = List.of();
+
 	private static KeyMapping menu;
 
 	@Override
 	public void onInitializeClient() {
+		Baritone.init();
 		AfkGuard.init();
 		GhastPilot.init();
 		PortalWatch.init();
+		DebrisMiner.init();
+		FEATURES = List.of(PortalWatch.feature(), DebrisMiner.feature(), AfkGuard.feature(), GhastPilot.feature());
 		menu = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.xnmc.menu", InputConstants.KEY_SEMICOLON, KEYS));
 		ClientTickEvents.END_CLIENT_TICK.register(mc -> {
 			while (menu.consumeClick()) mc.gui.setScreen(new XnmcScreen(null));

@@ -15,7 +15,6 @@ import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
-import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -31,6 +30,9 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
+import xnmc.Baritone;
+import xnmc.Feature;
+import xnmc.FeatureScreen;
 import xnmc.Xnmc;
 import xnmc.ghastpilot.GhastPilot;
 
@@ -48,7 +50,7 @@ public final class PortalWatch {
 	private static BlockPos pending;
 	private static BlockPos approach;
 	private static final List<BlockPos> known = new ArrayList<>();
-	// Destinations wait for the tick: Baritone ignored "#" chat sent from inside a client command.
+	// Destinations wait for the tick, so a leg started from a command or button goes out like the rest.
 	private static final Queue<BlockPos> outbox = new ArrayDeque<>();
 	// The last trip started; it outlives finds, dimension changes and reconnects so resume can pick it up.
 	private static Trip trip;
@@ -117,6 +119,16 @@ public final class PortalWatch {
 						.then(ClientCommands.literal("explore").executes(c -> explore()))
 						.then(ClientCommands.literal("resume").executes(c -> resume()))
 						.then(ClientCommands.literal("off").executes(c -> off()))));
+	}
+
+	public static Feature feature() {
+		return new Feature("Portal Watch", PortalWatch::status, s -> {
+			var to = s.field("x z, for Go to");
+			s.row(FeatureScreen.act("Watch", PortalWatch::on), FeatureScreen.act("Spawn", () -> go(0, 0)),
+					FeatureScreen.act("Go to", () -> { int[] c = s.coords(to); if (c != null) go(c[0], c[c.length - 1]); }));
+			s.row(FeatureScreen.act("Explore", PortalWatch::explore), FeatureScreen.act("Resume", PortalWatch::resume),
+					FeatureScreen.act("Off", PortalWatch::off));
+		});
 	}
 
 	public static boolean armed() { return armed; }
@@ -294,11 +306,8 @@ public final class PortalWatch {
 		if (GhastPilot.ghast() != null) {
 			LOG.info("flying to {}", xz);
 			GhastPilot.steer(to.getX(), to.getZ());
-		} else if (FabricLoader.getInstance().isModLoaded("baritone") || FabricLoader.getInstance().isModLoaded("baritone-meteor")) {
-			// baritone-meteor is the unobfuscated build Meteor Client needs; same "#" commands.
-			LOG.info("sending #goto {}", xz);
-			// Baritone cancels "#..." chat at ClientPacketListener.sendChat, so this never reaches the server.
-			mc.player.connection.sendChat("#goto " + xz);
+		} else if (Baritone.present()) {
+			Baritone.send("goto " + xz);
 		} else say("Baritone isn't installed, so on foot I can't take you to " + xz + ".");
 	}
 

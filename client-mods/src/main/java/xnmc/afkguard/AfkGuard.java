@@ -15,6 +15,8 @@ import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.client.multiplayer.resolver.ServerAddress;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import xnmc.Feature;
+import xnmc.FeatureScreen;
 import xnmc.Xnmc;
 import xnmc.afkguard.mixin.DisconnectedAccessor;
 
@@ -29,6 +31,11 @@ public final class AfkGuard {
 
     public static boolean armed() { return guard.armed(); }
     public static void off() { guard.off("off"); say("off."); }
+
+    public static Feature feature() {
+        return new Feature("AFK Guard", AfkGuard::status, s ->
+                s.row(FeatureScreen.act("Arm for 12 hours", AfkGuard::arm), FeatureScreen.act("Off", AfkGuard::off)));
+    }
 
     public static void init() {
         ClientTickEvents.START_CLIENT_TICK.register(AfkGuard::tick);

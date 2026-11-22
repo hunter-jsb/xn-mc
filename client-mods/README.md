@@ -8,9 +8,10 @@ Build with `gradle build` (Loom 1.19; it also runs AFK Guard's policy checks), t
 
 ## The menu
 
-**;** (rebindable under XNMC), `/xnmc`, or Mods → XNMC → Configure opens one screen with each feature's status and
-buttons. The coordinates box at the top (`x z` or `x y z`) feeds the Go to buttons. Buttons act and close the menu;
-replies land in chat. Nothing is added to the title, pause or disconnect screens.
+**;** (rebindable under XNMC), `/xnmc`, or Mods → XNMC → Configure opens a list of features, each with its status;
+click one for its page of buttons. Buttons act and close the menu; replies land in chat. Nothing is added to the
+title, pause or disconnect screens. A new feature is a package with `init()` and `feature()`, listed in
+`Xnmc.FEATURES`.
 
 ## Portal Watch (`xnmc/portalwatch`)
 
@@ -36,23 +37,32 @@ The sweep replaced Baritone's `#explore`, which heads for the nearest unloaded c
 still a view distance away, so it trailed that far inside the edge and each lap pushed out about one chunk. The sweep
 never re-walks a lane, but doesn't know which land you covered before.
 
-## Ghast Pilot (`xnmc/ghastpilot`)
+## Debris Miner (`xnmc/debris`)
 
-Autopilot for riding a happy ghast, after Ghast Autopilot (which stops at 1.21.11). Input-level: it holds forward and
-jump and turns your view, and the ghast flies where you look, as if you were flying it.
+Tunnels the nether at Y 15 along chunk borders and mines the ancient debris it can see from the tunnel: only blocks
+with a face open to air in your line of sight, within 5 blocks, never a beeline to buried ore. Baritone walks and digs
+(`#goto` legs 8 blocks long); the miner plans the lanes and the safety.
 
-| Control | Behavior |
+| Command | Behavior |
 | --- | --- |
-| **O** (rebindable under XNMC) | Toggle: to the destination if one is set, otherwise forward |
-| `/ghastpilot forward` | Fly the way you face; turn to steer. It handles height and terrain |
-| `/ghastpilot goto <x> <z>` | Fly there at the height you're at now |
-| `/ghastpilot goto <x> <y> <z>` | Fly there at height y |
-| `/ghastpilot clear` / `off` / no argument | Drop the destination / stop / status |
+| `/debris` | Status |
+| `/debris start [length]` | Start from the nearest chunk-border crossing, tunnelling the way you face: 16 lanes of `length` blocks (default 256), one chunk apart, stepping to your right |
+| `/debris resume` | Carry on the last run, past whatever stopped it |
+| `/debris stop` | Stop |
 
-It turns at most 6° a tick and turns in place when more than 30° off course, so it can't orbit the target. It climbs
-when terrain within 10 blocks ahead would hit the ghast's body and settles back to the cruise height once the way down
-is clear; holding jump raises that height. It stops on arrival (within 2 blocks), when you press back or when you
-dismount.
+To start it needs the nether, Y within 8 of 15, a pickaxe with durability in the hotbar, fire resistance with 2+
+minutes left (or a fire resistance potion in the hotbar), and AFK Guard, which it arms if it can. It sets Baritone's
+`itemSaver` so the pickaxe is never used up, and warns if you aren't wearing gold for piglins.
+
+Running, it:
+- backs off along the tunnel to the newest waypoint at least 6 blocks away with no lava within 3, then stops, when lava
+  is in or beside your space or flowing at or above your feet within 2 blocks;
+- drinks a fire resistance potion from the hotbar when under 45 seconds remain, and stops if there's none;
+- stops when AFK Guard turns off (damage logs you out), no hotbar pickaxe has more than 10 uses left, the inventory is
+  full, Baritone stays stuck past three skipped waypoints, or the 16 lanes are done;
+- skips debris that touches lava, since opening it would let the lava in, and debris it can't reach in a minute.
+
+Stops ring three bells. Netherrack fills the inventory after about 1,000 blocks of tunnel.
 
 ## AFK Guard (`xnmc/afkguard`)
 
@@ -80,3 +90,20 @@ trips. A client mod can't undo damage the server already applied or act while th
 Auto Eater 1.5.1 (installed separately, from Modrinth) pairs with it: `.minecraft/config/auto_eater.json` scans the
 inventory and eats at 18/20, in the main hand, using the last hotbar slot. Keep cooked food on you and face open air
 when AFK; the guard's food cutoff is the fallback.
+
+## Ghast Pilot (`xnmc/ghastpilot`)
+
+Autopilot for riding a happy ghast, after Ghast Autopilot (which stops at 1.21.11). Input-level: it holds forward and
+jump and turns your view, and the ghast flies where you look, as if you were flying it. Rarely used, so it has no key and sits last in the menu.
+
+| Control | Behavior |
+| --- | --- |
+| `/ghastpilot forward` | Fly the way you face; turn to steer. It handles height and terrain |
+| `/ghastpilot goto <x> <z>` | Fly there at the height you're at now |
+| `/ghastpilot goto <x> <y> <z>` | Fly there at height y |
+| `/ghastpilot off` / no argument | Stop / status |
+
+It turns at most 6° a tick and turns in place when more than 30° off course, so it can't orbit the target. It climbs
+when terrain within 10 blocks ahead would hit the ghast's body and settles back to the cruise height once the way down
+is clear; holding jump raises that height. It stops on arrival (within 2 blocks), when you press back or when you
+dismount.

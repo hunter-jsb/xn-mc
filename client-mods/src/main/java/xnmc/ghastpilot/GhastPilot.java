@@ -1,6 +1,5 @@
 package xnmc.ghastpilot;
 
-import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 
@@ -8,7 +7,6 @@ import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallba
 import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
@@ -18,6 +16,8 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.animal.happyghast.HappyGhast;
 import net.minecraft.world.phys.AABB;
+import xnmc.Feature;
+import xnmc.FeatureScreen;
 import xnmc.Xnmc;
 
 public final class GhastPilot {
@@ -30,7 +30,6 @@ public final class GhastPilot {
 	// How far ahead, in blocks, to look for terrain the ghast's body would hit.
 	private static final int[] LOOKAHEAD = {2, 4, 6, 8, 10};
 
-	private static KeyMapping toggle;
 	private static boolean engaged;
 	private static Integer destX, destZ, destY;
 	// The height it settles back to after climbing over something; cruiseY is the height right now.
@@ -39,7 +38,6 @@ public final class GhastPilot {
 	private static boolean quiet;
 
 	public static void init() {
-		toggle = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.xnmc.ghastpilot", InputConstants.KEY_O, Xnmc.KEYS));
 		ClientTickEvents.START_CLIENT_TICK.register(GhastPilot::tick);
 		ClientCommandRegistrationCallback.EVENT.register((dispatcher, ctx) -> dispatcher.register(
 				ClientCommands.literal("ghastpilot")
@@ -52,11 +50,6 @@ public final class GhastPilot {
 												.then(ClientCommands.argument("z", IntegerArgumentType.integer())
 														.executes(c -> go(int_(c, "x"), int_(c, "y"), int_(c, "z"), false))))))
 						.then(ClientCommands.literal("forward").executes(c -> { forward(); return 1; }))
-						.then(ClientCommands.literal("clear").executes(c -> {
-							destX = destY = destZ = null;
-							say("destination cleared; the key now flies forward.");
-							return 1;
-						}))
 						.then(ClientCommands.literal("off").executes(c -> { off(); return 1; }))));
 	}
 
@@ -64,7 +57,16 @@ public final class GhastPilot {
 	public static void forward() { engage(false, false); }
 	public static void goTo(int x, Integer y, int z) { go(x, y, z, false); }
 	public static void off() { disengage("off."); }
-	public static String key() { return toggle.getTranslatedKeyMessage().getString(); }
+
+	// Rarely used, so it sits last in the menu and has no key.
+	public static Feature feature() {
+		return new Feature("Ghast Pilot", GhastPilot::status, s -> {
+			var to = s.field("x z  or  x y z, for Go to");
+			s.row(FeatureScreen.act("Fly forward", GhastPilot::forward),
+					FeatureScreen.act("Go to", () -> { int[] c = s.coords(to); if (c != null) goTo(c[0], c.length == 3 ? c[1] : null, c[c.length - 1]); }),
+					FeatureScreen.act("Off", GhastPilot::off));
+		});
+	}
 
 	// Portal Watch's legs: a goto without the chat line, keeping the cruise height between legs.
 	public static void steer(int x, int z) {
@@ -78,14 +80,13 @@ public final class GhastPilot {
 	private static int go(int x, Integer y, int z, boolean silent) {
 		// A new leg of the same run keeps its cruise height; a fresh goto starts from where you are.
 		boolean sameRun = engaged && destX != null && silent && quiet;
+		if (ghast() == null) {
+			if (!silent) say("get on a happy ghast first.");
+			return 0;
+		}
 		destX = x;
 		destY = y;
 		destZ = z;
-		if (ghast() == null) {
-			if (!silent) say("destination " + x + (y != null ? " " + y : "") + " " + z + " set. Get on a happy ghast and press "
-					+ key() + ".");
-			return silent ? 0 : 1;
-		}
 		if (!sameRun) engage(true, silent);
 		return 1;
 	}
@@ -109,7 +110,7 @@ public final class GhastPilot {
 		cruiseY = Math.max(floorY, g.getY());
 		if (silent) return;
 		if (destX == null) say("flying the way you face; turn to steer. I'll keep the height and climb over terrain. "
-				+ key() + " or back to stop.");
+				+ "Press back or /ghastpilot off to stop.");
 		else say("flying to " + destX + (destY != null ? " " + destY : "") + " " + destZ + ", " + (int) Math.sqrt(distSq(g)) + " blocks.");
 	}
 
@@ -128,10 +129,6 @@ public final class GhastPilot {
 	}
 
 	private static void tick(Minecraft mc) {
-		while (toggle.consumeClick()) {
-			if (engaged) disengage("off.");
-			else engage(destX != null, false);
-		}
 		if (!engaged) return;
 		HappyGhast g = ghast();
 		if (g == null) {
@@ -187,8 +184,8 @@ public final class GhastPilot {
 	}
 
 	public static String status() {
-		String dest = destX == null ? "no destination" : "destination " + destX + (destY != null ? " " + destY : "") + " " + destZ;
-		return (engaged ? (destX == null ? "flying forward" : "flying") : "off") + ", " + dest + ". Key: " + key() + ".";
+		if (!engaged) return "off.";
+		return destX == null ? "flying forward." : "flying to " + destX + (destY != null ? " " + destY : "") + " " + destZ + ".";
 	}
 
 	private static void say(String text) {
