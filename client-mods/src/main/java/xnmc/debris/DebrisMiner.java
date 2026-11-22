@@ -261,7 +261,7 @@ public final class DebrisMiner {
 			startDrink(p, slot);
 			return;
 		}
-		if (freeSlots(p) < DUMP_AT) { startDump(p); return; }
+		if (freeSlots(p) < DUMP_AT && junkSlot(p) >= 0) { startDump(p); return; }
 		if (state == State.DEBRIS) {
 			if (!mc.level.getBlockState(target).is(Blocks.ANCIENT_DEBRIS) && near(p, target, 1.6)) {
 				mc.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.AMETHYST_BLOCK_CHIME, 1.0f, 1.0f));
@@ -424,7 +424,6 @@ public final class DebrisMiner {
 			}
 			case CLOSE -> {
 				if (dumpTicks < 5) return;
-				if (freeSlots(p) < DUMP_AT) { stop("your inventory is full of things worth keeping."); return; }
 				LOG.info("dropped {} stacks of junk", thrown);
 				state = afterPause;
 				sinceProgress = 0;
@@ -443,6 +442,15 @@ public final class DebrisMiner {
 		return -1;
 	}
 
+	private static boolean roomForDebris(LocalPlayer p) {
+		Inventory inv = p.getInventory();
+		for (int i = 0; i < Inventory.INVENTORY_SIZE; i++) {
+			ItemStack s = inv.getItem(i);
+			if (s.isEmpty() || s.is(Items.ANCIENT_DEBRIS) && s.getCount() < s.getMaxStackSize()) return true;
+		}
+		return false;
+	}
+
 	private static int freeSlots(LocalPlayer p) {
 		int n = 0;
 		for (int i = 0; i < Inventory.INVENTORY_SIZE; i++) if (p.getInventory().getItem(i).isEmpty()) n++;
@@ -453,6 +461,8 @@ public final class DebrisMiner {
 	private static String unsafe(LocalPlayer p) {
 		if (!AfkGuard.armed()) return "AFK Guard is off, so I stopped.";
 		if (pickaxe(p) < 0) return "no pickaxe in your hotbar has durability left.";
+		// A full inventory is fine while debris still has somewhere to go.
+		if (!roomForDebris(p)) return "no room left for debris.";
 		return null;
 	}
 
