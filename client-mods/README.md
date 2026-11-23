@@ -181,6 +181,8 @@ An order is `disconnect` (AFK Guard stands down, so nothing reconnects), `screen
 `screenshots/xnmc-<time>.png`; the event names it), `baritone <command>`, or any command this client registers
 (`portalwatch off`, `portalwatch explore`, `afkguard arm`, `stasis recall home`, `debris stop`, ...). Anything else is
 refused and logged: an order never becomes chat or a command sent to the server.
+Write an order under another name and rename it to `.cmd`, so it is never read half written:
+`echo 'portalwatch off' > inbox/stop.tmp && mv inbox/stop.tmp inbox/stop.cmd`.
 
 Alerts go to a Discord webhook: portal finds, a search or a build stopping, the Debris Miner stopping for anything
 but your own stop, a disconnect with its reason, and AFK Guard's rejoin. The same line is not sent twice within a

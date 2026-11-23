@@ -284,7 +284,7 @@ public final class Remote {
 			case REFUSED -> event("Remote", "order refused: " + order.arg());
 			case SCREENSHOT -> {
 				String name = "xnmc-" + System.currentTimeMillis() + ".png";
-				Screenshot.grab(mc.gameDirectory, name, mc.gameRenderer.mainRenderTarget(), 1, done -> event("Remote", "screenshot: screenshots/" + name));
+				Screenshot.grab(mc.gameDirectory, name, mc.gameRenderer.mainRenderTarget(), 1, done -> event("Remote", "screenshot " + name + ": " + done.getString()));
 			}
 			case DISCONNECT -> {
 				if (mc.getConnection() == null) { event("Remote", "order refused: not connected"); return; }
