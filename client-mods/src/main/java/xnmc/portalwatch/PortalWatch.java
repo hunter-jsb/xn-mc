@@ -275,12 +275,12 @@ public final class PortalWatch {
 		if (approach != null && mc.player != null && near(mc, approach, 2.5)) {
 			approach = null;
 			ring(mc);
-			say("you're at the portal.");
+			alert("you're at the portal.");
 		}
 		if (!armed) return;
 		if (mc.player == null) return;
         if (pending == null && following && trip != null && trip.frontier != null) {
-            if (!onRoof(mc.level)) { off(); say("left the roof; edge exploration stopped."); return; }
+            if (!onRoof(mc.level)) { off(); alert("left the roof; edge exploration stopped."); return; }
             BlockPos next = trip.frontier.tick(mc);
             if (trip.frontier.stopped()) { armed = following = false; stopMovement(); return; }
             if (next != null) moveTo(next);
@@ -301,7 +301,7 @@ public final class PortalWatch {
             approach = null; outbox.clear();
             stopMovement();
             ring(mc);
-            say("portal below the roof at " + p.getX() + " " + p.getY() + " " + p.getZ() + ". Staying on the roof and building above its chunk.");
+            alert("portal below the roof at " + p.getX() + " " + p.getY() + " " + p.getZ() + ". Staying on the roof and building above its chunk.");
             RoofPortalBuilder.start(p);
             return;
         }
@@ -309,7 +309,7 @@ public final class PortalWatch {
 		moveTo(approach);
 		ring(mc);
 		int dist = (int) Math.sqrt(mc.player.blockPosition().distSqr(p));
-		say("portal at " + p.getX() + " " + p.getY() + " " + p.getZ() + ", " + dist
+		alert("portal at " + p.getX() + " " + p.getY() + " " + p.getZ() + ", " + dist
 				+ " blocks away. Heading over; I'll stop " + STANDOFF + " blocks short.");
 		mc.player.sendOverlayMessage(Component.literal("Portal found " + dist + " blocks away").withStyle(ChatFormatting.LIGHT_PURPLE));
 	}
@@ -441,7 +441,7 @@ public final class PortalWatch {
             var bounds=new FrontierPlanner.Bounds(b.getMinX(),b.getMinZ(),b.getMaxX(),b.getMaxZ());
             if (!bounds.contains(to.getX()+.5,to.getZ()+.5)) {
                 armed=following=false; stopMovement();
-                say("spiral stopped at the world border; choose a trail pattern to follow it sideways or inward.");
+                alert("spiral stopped at the world border; choose a trail pattern to follow it sideways or inward.");
                 return;
             }
         }
@@ -465,6 +465,11 @@ public final class PortalWatch {
 		approach = null;
 		outbox.clear();
 		known.clear();
+	}
+
+	// A find or a stop: what an unattended search is left running for.
+	static void alert(String text) {
+		Xnmc.alert("Portal Watch", ChatFormatting.LIGHT_PURPLE, text);
 	}
 
 	static void say(String text) {

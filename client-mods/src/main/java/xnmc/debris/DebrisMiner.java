@@ -544,14 +544,16 @@ public final class DebrisMiner {
 		state = State.OFF;
 		last = why;
 		if (mc.player != null && !why.equals("stopped.")) alarm(mc, mc.player, "Debris Miner stopped");
-		say(why);
+		// Stopped by hand it only says so; stopped by anything else, it is why someone should look.
+		if (why.equals("stopped.")) say(why);
+		else Xnmc.alert("Debris Miner", ChatFormatting.DARK_AQUA, why);
 	}
 
 	// Stop after a retreat, which already sent Baritone on its way.
 	private static void halt(String why) {
 		state = State.OFF;
 		last = why;
-		say(why);
+		Xnmc.alert("Debris Miner", ChatFormatting.DARK_AQUA, why);
 	}
 
 	// Let go of a potion mid-drink and put the hotbar back, or close the inventory mid-dump.

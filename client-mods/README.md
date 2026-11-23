@@ -166,6 +166,36 @@ Auto Eater 1.5.1 (installed separately, from Modrinth) pairs with it: `.minecraf
 inventory and eats at 18/20, in the main hand, using the last hotbar slot. Keep cooked food on you and face open air
 when AFK; the guard's food cutoff is the fallback.
 
+## Remote (`xnmc/remote`)
+
+For a run nobody is watching: how it stands, what it said, a way to steer it, and a word to Discord when it needs
+someone. Everything is files under `.minecraft/xnmc/`; nothing listens on the network.
+
+| File | What it holds |
+| --- | --- |
+| `status.json` | Rewritten every five seconds, in a world or not: time, server, dimension and position, health, absorption, food, totems, players in sight, every feature's status line; out of a world, the screen and the disconnect reason. A stale `time` means the game itself has stopped |
+| `events.jsonl` | Every line XNMC says, with when and where; joins, disconnects with their reason, and what each order did. Past 5 MB it moves to `events.1.jsonl` |
+| `inbox/*.cmd` | Orders: one line each, run in name order within a second and removed as they are read |
+
+An order is `disconnect` (AFK Guard stands down, so nothing reconnects), `screenshot` (saved as
+`screenshots/xnmc-<time>.png`; the event names it), `baritone <command>`, or any command this client registers
+(`portalwatch off`, `portalwatch explore`, `afkguard arm`, `stasis recall home`, `debris stop`, ...). Anything else is
+refused and logged: an order never becomes chat or a command sent to the server.
+
+Alerts go to a Discord webhook: portal finds, a search or a build stopping, the Debris Miner stopping for anything
+but your own stop, a disconnect with its reason, and AFK Guard's rejoin. The same line is not sent twice within a
+minute, nor more than five in ten seconds, and nothing in them pings. Positions are in them, so make the webhook in
+a channel only you can see (channel settings → Integrations → Webhooks → New Webhook → Copy Webhook URL).
+
+| Command | Behavior |
+| --- | --- |
+| `/xnmc remote` | Status |
+| `/xnmc remote webhook <address>` | Save the webhook (kept in `config/xnmc-remote.properties`, never in this repo); `clear` removes it |
+| `/xnmc remote alerts on` / `off` | Alerts, without touching the files |
+| `/xnmc remote test` | Send one alert |
+
+The game has to be running for any of this: a crash or a frozen client shows only as `status.json` going stale.
+
 ## Ghast Pilot (`xnmc/ghastpilot`)
 
 Autopilot for riding a happy ghast, after Ghast Autopilot (which stops at 1.21.11). Input-level: it holds forward and

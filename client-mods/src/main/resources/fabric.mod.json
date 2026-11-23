@@ -3,7 +3,7 @@
 	"id": "xnmc",
 	"version": "${version}",
 	"name": "XNMC",
-	"description": "Our client tools in one mod: Stasis timing, Portal Watch, Loot Notes, Debris Miner, Ghast Pilot and AFK Guard, behind one menu.",
+	"description": "Our client tools in one mod: Stasis timing, Portal Watch, Loot Notes, Debris Miner, AFK Guard, Remote and Ghast Pilot, behind one menu.",
 	"license": "MIT",
 	"environment": "client",
 	"entrypoints": {

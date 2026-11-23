@@ -34,6 +34,11 @@ tasks.register('lootNotesTest', JavaExec) {
     mainClass = 'xnmc.lootnotes.LootNotesTest'
 }
 check.dependsOn frontierTest, lootNotesTest
+tasks.register('remoteTest', JavaExec) {
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'xnmc.remote.RemoteTest'
+}
+check.dependsOn remoteTest
 tasks.register('portalTest', JavaExec) {
 	classpath = sourceSets.test.runtimeClasspath
 	mainClass = 'xnmc.portalwatch.PortalTest'

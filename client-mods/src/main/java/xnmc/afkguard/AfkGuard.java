@@ -32,6 +32,7 @@ public final class AfkGuard {
     public static boolean armed() { return guard.armed(); }
     public static void off() { guard.off("off"); say("off."); }
     public static void suspendForStasis() { guard.off("off for intentional stasis recall; re-arm manually after arrival"); }
+    public static void suspendForRemote() { if (guard.armed()) guard.off("off: disconnect ordered through Remote; re-arm when you're back"); }
 
     public static Feature feature() {
         return new Feature("AFK Guard", AfkGuard::status, s ->
@@ -117,7 +118,8 @@ public final class AfkGuard {
         if (mc.player != null && mc.level != null) {
             if (!online) {
                 guard.joined();
-                say("rejoined, still armed.");
+                LOG.log(System.Logger.Level.INFO, "rejoined, still armed.");
+                Xnmc.alert("AFK Guard", ChatFormatting.GOLD, "rejoined, still armed.");
             }
             online = true;
             handledDisconnect = null;

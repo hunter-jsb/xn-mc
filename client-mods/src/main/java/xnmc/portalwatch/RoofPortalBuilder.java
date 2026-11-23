@@ -241,6 +241,6 @@ final class RoofPortalBuilder {
         }
         previousSlot = swappedFrom = -1;
         stage = null; world = null; owner = null; desired.clear();
-        if (why != null) PortalWatch.say(why);
+        if (why != null) PortalWatch.alert(why);
     }
 }

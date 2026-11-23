@@ -21,6 +21,7 @@ import xnmc.debris.DebrisMiner;
 import xnmc.ghastpilot.GhastPilot;
 import xnmc.portalwatch.PortalWatch;
 import xnmc.lootnotes.LootNotes;
+import xnmc.remote.Remote;
 import xnmc.stasis.Stasis;
 
 public final class Xnmc implements ClientModInitializer {
@@ -40,7 +41,8 @@ public final class Xnmc implements ClientModInitializer {
 		DebrisMiner.init();
         LootNotes.init();
         Stasis.init();
-		FEATURES = List.of(Stasis.feature(), PortalWatch.feature(), LootNotes.feature(), DebrisMiner.feature(), AfkGuard.feature(), GhastPilot.feature());
+		Remote.init();
+		FEATURES = List.of(Stasis.feature(), PortalWatch.feature(), LootNotes.feature(), DebrisMiner.feature(), AfkGuard.feature(), Remote.feature(), GhastPilot.feature());
 		menu = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.xnmc.menu", InputConstants.KEY_SEMICOLON, KEYS));
 		ClientTickEvents.END_CLIENT_TICK.register(mc -> {
 			while (menu.consumeClick()) mc.gui.setScreen(new XnmcScreen(null));
@@ -52,8 +54,15 @@ public final class Xnmc implements ClientModInitializer {
 
 	// One chat line, prefixed by the feature that said it; only you see it.
 	public static void say(String feature, ChatFormatting color, String text) {
+		Remote.event(feature, text);
 		LocalPlayer p = Minecraft.getInstance().player;
 		if (p != null) p.sendSystemMessage(Component.literal("[" + feature + "] " + text).withStyle(color));
+	}
+
+	// A line that needs someone when nobody is watching: said as any other, and sent on by Remote.
+	public static void alert(String feature, ChatFormatting color, String text) {
+		say(feature, color, text);
+		Remote.alert(feature, text);
 	}
 
 	// The physical key, not the mapping state a feature may be holding down.

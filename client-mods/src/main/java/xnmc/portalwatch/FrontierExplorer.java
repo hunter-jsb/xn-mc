@@ -91,7 +91,7 @@ final class FrontierExplorer {
         stopped = true;
         goal = null;
         saveHistory();
-        PortalWatch.say("edge explore stopped: " + reason + ".");
+        PortalWatch.alert("edge explore stopped: " + reason + ".");
     }
     void recordScanned(int x, int z) { history.record(x,z); }
     void saveHistory() {
