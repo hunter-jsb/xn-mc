@@ -5,10 +5,15 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import java.util.function.Supplier;
 
 // A feature's own page. Its controls lay themselves out top to bottom with field() and row(); a button acts and
 // drops you back into the game, where any reply lands in chat, unless it reported an error.
 public final class FeatureScreen extends Screen {
+    public static void open(Feature feature) {
+        var mc = net.minecraft.client.Minecraft.getInstance();
+        mc.schedule(() -> mc.gui.setScreen(new FeatureScreen(feature,null)));
+    }
 	private static final int W = 300, ROW = 20, GAP = 4;
 	private static final int WHITE = 0xFFFFFFFF, GREY = 0xFFAAAAAA, RED = 0xFFFF7777;
 	private final Feature feature;
@@ -66,9 +71,24 @@ public final class FeatureScreen extends Screen {
 		y += ROW + GAP;
 	}
 
+	// A setting can change without closing the feature page.
+	public void choice(Supplier<String> label, Runnable change) {
+		addRenderableWidget(Button.builder(Component.literal(label.get()), b -> {
+			change.run();
+			b.setMessage(Component.literal(label.get()));
+		}).bounds(left, y, W, ROW).build());
+		y += ROW + GAP;
+	}
+
 	public void error(String text) {
 		error = text;
 	}
+
+    public void page(String label, Feature child) {
+        addRenderableWidget(Button.builder(Component.literal(label), b -> minecraft.gui.setScreen(new FeatureScreen(child, this)))
+                .bounds(left,y,W,ROW).build());
+        y += ROW + GAP;
+    }
 
 	// "x z" or "x y z" from a field; anything else reports an error and returns null.
 	public int[] coords(EditBox box) {
@@ -88,7 +108,8 @@ public final class FeatureScreen extends Screen {
 	public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float delta) {
 		super.extractRenderState(g, mx, my, delta);
 		g.centeredText(font, feature.name(), width / 2, top, WHITE);
-		g.textWithWordWrap(font, Component.literal(feature.status().get()), left, top + 16, W, GREY);
+        var lines = font.split(Component.literal(feature.status().get()), W);
+        for (int i = 0; i < Math.min(2, lines.size()); i++) g.text(font, lines.get(i), left, top + 16 + i * 9, GREY);
 		if (!error.isEmpty()) g.centeredText(font, error, width / 2, y + 8 + ROW + 6, RED);
 	}
 

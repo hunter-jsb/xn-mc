@@ -35,4 +35,6 @@ public final class Baritone {
 	public static void send(String command) {
 		outbox.add(command);
 	}
+
+	public static void clearQueue() { outbox.clear(); }
 }

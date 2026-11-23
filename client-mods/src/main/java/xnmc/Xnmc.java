@@ -20,6 +20,8 @@ import xnmc.afkguard.AfkGuard;
 import xnmc.debris.DebrisMiner;
 import xnmc.ghastpilot.GhastPilot;
 import xnmc.portalwatch.PortalWatch;
+import xnmc.lootnotes.LootNotes;
+import xnmc.stasis.Stasis;
 
 public final class Xnmc implements ClientModInitializer {
 	public static final KeyMapping.Category KEYS = KeyMapping.Category.register(Identifier.fromNamespaceAndPath("xnmc", "xnmc"));
@@ -36,7 +38,9 @@ public final class Xnmc implements ClientModInitializer {
 		GhastPilot.init();
 		PortalWatch.init();
 		DebrisMiner.init();
-		FEATURES = List.of(PortalWatch.feature(), DebrisMiner.feature(), AfkGuard.feature(), GhastPilot.feature());
+        LootNotes.init();
+        Stasis.init();
+		FEATURES = List.of(Stasis.feature(), PortalWatch.feature(), LootNotes.feature(), DebrisMiner.feature(), AfkGuard.feature(), GhastPilot.feature());
 		menu = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.xnmc.menu", InputConstants.KEY_SEMICOLON, KEYS));
 		ClientTickEvents.END_CLIENT_TICK.register(mc -> {
 			while (menu.consumeClick()) mc.gui.setScreen(new XnmcScreen(null));

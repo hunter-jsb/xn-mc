@@ -1,0 +1,7 @@
+{
+  "required": true,
+  "package": "xnmc.lootnotes.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": ["ChestPacketMixin"],
+  "injectors": {"defaultRequire": 1}
+}

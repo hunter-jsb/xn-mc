@@ -20,6 +20,33 @@ tasks.register('guardTest', JavaExec) {
 	jvmArgs '-ea'
 }
 check.dependsOn guardTest
+tasks.register('stasisTest', JavaExec) {
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'xnmc.stasis.StasisTest'
+}
+check.dependsOn stasisTest
+tasks.register('frontierTest', JavaExec) {
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'xnmc.portalwatch.FrontierTest'
+}
+tasks.register('lootNotesTest', JavaExec) {
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'xnmc.lootnotes.LootNotesTest'
+}
+check.dependsOn frontierTest, lootNotesTest
+tasks.register('portalTest', JavaExec) {
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'xnmc.portalwatch.PortalTest'
+	jvmArgs '-ea'
+}
+check.dependsOn portalTest
+def baritoneJar = file(System.getenv('BARITONE_JAR') ?: "${System.getProperty('user.home')}/.var/app/com.mojang.Minecraft/.minecraft/mods/baritone-meteor-26.3.jar")
+tasks.register('portalApiTest', JavaExec) {
+	classpath = sourceSets.test.runtimeClasspath + files(baritoneJar)
+	mainClass = 'xnmc.portalwatch.PortalApiTest'
+	onlyIf { baritoneJar.exists() }
+}
+check.dependsOn portalApiTest
 // No JUnit here; guardTest is the suite.
 test.enabled = false
 

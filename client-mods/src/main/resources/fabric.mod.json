@@ -3,14 +3,14 @@
 	"id": "xnmc",
 	"version": "${version}",
 	"name": "XNMC",
-	"description": "Our client tools in one mod: Portal Watch, Ghast Pilot and AFK Guard, behind one menu.",
+	"description": "Our client tools in one mod: Stasis timing, Portal Watch, Loot Notes, Debris Miner, Ghast Pilot and AFK Guard, behind one menu.",
 	"license": "MIT",
 	"environment": "client",
 	"entrypoints": {
 		"client": ["xnmc.Xnmc"],
 		"modmenu": ["xnmc.XnmcModMenu"]
 	},
-	"mixins": ["xnmc.mixins.json"],
+	"mixins": ["xnmc.mixins.json", "xnmc-lootnotes.mixins.json"],
 	"depends": {
 		"fabricloader": ">=0.20.1",
 		"minecraft": "~26.3",

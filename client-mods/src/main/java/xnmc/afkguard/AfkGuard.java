@@ -31,6 +31,7 @@ public final class AfkGuard {
 
     public static boolean armed() { return guard.armed(); }
     public static void off() { guard.off("off"); say("off."); }
+    public static void suspendForStasis() { guard.off("off for intentional stasis recall; re-arm manually after arrival"); }
 
     public static Feature feature() {
         return new Feature("AFK Guard", AfkGuard::status, s ->
